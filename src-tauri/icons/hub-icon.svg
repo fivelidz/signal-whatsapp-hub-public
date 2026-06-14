@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Background: deep slate, matches the app dark theme -->
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1b2330"/>
+      <stop offset="1" stop-color="#0d1117"/>
+    </linearGradient>
+    <!-- Signal-blue bubble -->
+    <linearGradient id="sig" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#5aa2ff"/>
+      <stop offset="1" stop-color="#2f6bff"/>
+    </linearGradient>
+    <!-- WhatsApp-green bubble -->
+    <linearGradient id="wa" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3ce86b"/>
+      <stop offset="1" stop-color="#1ea84f"/>
+    </linearGradient>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="#000" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+
+  <!-- rounded-square app tile -->
+  <rect x="16" y="16" width="480" height="480" rx="112" fill="url(#bg)"/>
+  <rect x="16" y="16" width="480" height="480" rx="112" fill="none"
+        stroke="#2a3340" stroke-width="3"/>
+
+  <!-- Two overlapping chat bubbles = the two platforms unified -->
+  <!-- WhatsApp bubble (back, right) -->
+  <g filter="url(#soft)">
+    <path d="M300 132
+             h70 a52 52 0 0 1 52 52
+             v92 a52 52 0 0 1 -52 52
+             h-44 l-34 30 v-30 h-12
+             a52 52 0 0 1 -52 -52
+             v-92 a52 52 0 0 1 52 -52 z"
+          fill="url(#wa)"/>
+  </g>
+
+  <!-- Signal bubble (front, left) -->
+  <g filter="url(#soft)">
+    <path d="M150 196
+             h84 a52 52 0 0 1 52 52
+             v92 a52 52 0 0 1 -52 52
+             h-72 l-40 34 v-34 h-12
+             a40 40 0 0 1 -40 -40
+             v-104 a52 52 0 0 1 52 -52 z"
+          fill="url(#sig)"/>
+  </g>
+
+  <!-- Unified "Q" mark centered on the Signal bubble -->
+  <g transform="translate(196,300)">
+    <circle cx="0" cy="0" r="40" fill="none" stroke="#ffffff" stroke-width="16"/>
+    <line x1="22" y1="22" x2="44" y2="44" stroke="#ffffff" stroke-width="16" stroke-linecap="round"/>
+  </g>
+
+  <!-- small green dot on the WhatsApp bubble to read as 'online/linked' -->
+  <circle cx="368" cy="190" r="13" fill="#0d1117"/>
+  <circle cx="368" cy="190" r="8" fill="#3ce86b"/>
+</svg>

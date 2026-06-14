@@ -1,0 +1,10 @@
+{
+  "name": "signal-whatsapp-hub",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Unified Signal + WhatsApp desktop hub with a localhost integration API",
+  "scripts": {
+    "dev": "tauri dev",
+    "build": "tauri build"
+  }
+}

@@ -1,0 +1,38 @@
+# Rust / Tauri build artifacts
+/src-tauri/target/
+target/
+**/*.rs.bk
+*.pdb
+
+# Tauri generated
+/src-tauri/gen/
+# NOTE: Cargo.lock IS committed (this is an application — reproducible builds)
+
+# Node (if a JS toolchain is added later)
+node_modules/
+dist/
+.DS_Store
+
+# Logs / local runtime
+*.log
+/tmp/
+
+# NEVER commit session/auth data, accounts, or message history
+*.db
+*.db-*
+*.jsonl
+*.csv
+**/auth/
+**/data/
+accounts.json
+*.marker
+
+# Local environment / secrets
+.env
+.env.*
+!.env.example
+
+# Editor
+.vscode/
+.idea/
+*.swp

@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Signal WhatsApp Hub</title>
+<style>
+  :root{
+    --bg:#0d1117; --panel:#161b22; --panel2:#1c232c; --line:#2a3340;
+    --text:#e6edf3; --dim:#8b98a5; --accent:#4cc2ff; --accent2:#7c5cff;
+    --ok:#3fb950; --warn:#d29922; --bad:#f85149;
+    --signal:#3a76f0; --whatsapp:#25d366;
+    --ai:#7c5cff; --manual:#4cc2ff; --human:#2a3340;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    background:var(--bg); color:var(--text);
+    font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
+    font-size:14px; display:flex; flex-direction:column; overflow:hidden;
+  }
+  /* ── Top bar ── */
+  #topbar{
+    display:flex; align-items:center; gap:14px; padding:10px 16px;
+    background:var(--panel); border-bottom:1px solid var(--line);
+  }
+  #topbar .brand{font-weight:700; font-size:16px; letter-spacing:.3px}
+  #topbar .brand span{color:var(--accent)}
+  #topbar .ver{margin-left:8px; font-size:11px; font-weight:600; color:var(--accent);
+    background:rgba(76,194,255,.12); border:1px solid rgba(76,194,255,.35);
+    border-radius:10px; padding:1px 7px; vertical-align:middle; letter-spacing:.2px}
+  #topbar .num{color:var(--dim); font-size:12px}
+  .spacer{flex:1}
+  .pill{
+    display:inline-flex; align-items:center; gap:6px; padding:4px 10px;
+    border-radius:20px; font-size:12px; background:var(--panel2);
+    border:1px solid var(--line);
+  }
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--dim)}
+  .dot.ok{background:var(--ok)} .dot.bad{background:var(--bad)}
+  .dot.warn{background:var(--warn)}
+  /* ── Tabs ── */
+  #tabbar{display:flex; gap:2px; padding:0 16px; background:var(--panel);
+    border-bottom:1px solid var(--line)}
+  .tab{
+    padding:11px 22px; cursor:pointer; color:var(--dim); font-weight:600;
+    border-bottom:2px solid transparent; user-select:none; display:flex;
+    align-items:center; gap:8px;
+  }
+  .tab:hover{color:var(--text)}
+  .tab.active{color:var(--text); border-bottom-color:var(--accent)}
+  .tab .badge{width:9px;height:9px;border-radius:50%}
+  .tab[data-tab="signal"] .badge{background:var(--signal)}
+  .tab[data-tab="whatsapp"] .badge{background:var(--whatsapp)}
+  /* unread count box next to the tab name */
+  .tab .unread{
+    min-width:18px; height:18px; padding:0 5px; border-radius:9px;
+    background:var(--bad); color:#fff; font-size:11px; font-weight:700;
+    display:inline-flex; align-items:center; justify-content:center;
+    line-height:1; box-shadow:0 0 0 1px rgba(0,0,0,.2);
+  }
+  .tab[data-tab="signal"] .unread{background:var(--signal)}
+  .tab[data-tab="whatsapp"] .unread{background:var(--whatsapp)}
+  /* ── Main layout ── */
+  #main{flex:1; display:flex; overflow:hidden}
+  .pane{display:none; flex:1; overflow:hidden}
+  .pane.active{display:flex}
+  /* Conversations sidebar */
+  .sidebar{
+    width:280px; min-width:280px; background:var(--panel);
+    border-right:1px solid var(--line); display:flex; flex-direction:column;
+  }
+  .sidebar .hd{padding:12px 14px; font-size:12px; color:var(--dim);
+    text-transform:uppercase; letter-spacing:.5px; border-bottom:1px solid var(--line);
+    display:flex; justify-content:space-between; align-items:center}
+  .convlist{flex:1; overflow-y:auto}
+  .conv{padding:11px 14px; cursor:pointer; border-bottom:1px solid var(--line)}
+  .conv:hover{background:var(--panel2)}
+  .conv.active{background:var(--panel2); border-left:3px solid var(--accent)}
+  .conv .conv-top{display:flex; align-items:baseline; justify-content:space-between; gap:8px}
+  .conv .name{font-weight:600; font-size:13px; white-space:nowrap;
+    overflow:hidden; text-overflow:ellipsis}
+  .conv .when{color:var(--dim); font-size:11px; flex-shrink:0}
+  .conv .prev{color:var(--dim); font-size:12px; margin-top:3px;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .newconv{padding:10px 14px; border-bottom:1px solid var(--line)}
+  .newconv input{width:100%; padding:7px 9px; background:var(--bg);
+    border:1px solid var(--line); border-radius:6px; color:var(--text); font-size:12px}
+  /* Chat area */
+  .chat{flex:1; display:flex; flex-direction:column; overflow:hidden}
+  .chat .chathd{padding:12px 16px; border-bottom:1px solid var(--line);
+    background:var(--panel); display:flex; align-items:center; gap:10px}
+  .chat .chathd .peer{font-weight:600}
+  .chat .chathd .sub{color:var(--dim); font-size:12px}
+  .messages{flex:1; overflow-y:auto; padding:16px; display:flex;
+    flex-direction:column; gap:10px}
+  .msg{max-width:72%; padding:9px 13px; border-radius:12px; position:relative;
+    line-height:1.4; word-wrap:break-word}
+  .msg .meta{font-size:10px; margin-top:5px; opacity:.7; display:flex;
+    gap:7px; align-items:center}
+  .msg .tag{font-weight:700; letter-spacing:.4px; text-transform:uppercase;
+    font-size:9px; padding:1px 5px; border-radius:4px}
+  /* inbound (human) */
+  .msg.in{align-self:flex-start; background:var(--panel2);
+    border:1px solid var(--line); border-bottom-left-radius:3px}
+  .msg.in .tag{background:#2a3340; color:var(--dim)}
+  /* outbound manual (operator) */
+  .msg.out.manual{align-self:flex-end; background:rgba(76,194,255,.14);
+    border:1px solid rgba(76,194,255,.4); border-bottom-right-radius:3px}
+  .msg.out.manual .tag{background:var(--manual); color:#06283d}
+  /* outbound AI */
+  .msg.out.ai{align-self:flex-end;
+    background:rgba(124,92,255,.16);
+    border:1px solid rgba(124,92,255,.5); border-bottom-right-radius:3px}
+  .msg.out.ai .tag{background:var(--ai); color:#fff}
+  .msg.out.ai::after{content:"🤖"; position:absolute; top:-9px; right:-6px;
+    font-size:13px}
+  /* composer */
+  .composer{padding:12px 16px; border-top:1px solid var(--line);
+    background:var(--panel); display:flex; gap:10px; align-items:flex-end}
+  .composer textarea{flex:1; resize:none; min-height:42px; max-height:140px;
+    padding:10px 12px; background:var(--bg); border:1px solid var(--line);
+    border-radius:8px; color:var(--text); font-family:inherit; font-size:14px}
+  .composer .src{display:flex; flex-direction:column; gap:4px; font-size:11px;
+    color:var(--dim)}
+  .composer button{padding:10px 20px; background:var(--accent); color:#06283d;
+    border:none; border-radius:8px; font-weight:700; cursor:pointer; font-size:14px}
+  .composer button:hover{filter:brightness(1.1)}
+  .composer button:disabled{opacity:.4; cursor:not-allowed}
+  /* Link / QR overlay panel */
+  .linkpanel{flex:1; display:flex; flex-direction:column; align-items:center;
+    justify-content:center; gap:18px; padding:30px; text-align:center}
+  .linkpanel h2{font-size:20px}
+  .linkpanel p{color:var(--dim); max-width:440px; line-height:1.6}
+  .qrbox{width:280px;height:280px; background:#fff; border-radius:12px;
+    display:flex; align-items:center; justify-content:center; padding:10px}
+  .qrbox img{width:100%;height:100%;image-rendering:pixelated}
+  .qrbox .waiting{color:#333; font-size:13px}
+  .btn{padding:10px 22px; background:var(--accent); color:#06283d; border:none;
+    border-radius:8px; font-weight:700; cursor:pointer; font-size:14px}
+  .btn.ghost{background:transparent; color:var(--accent);
+    border:1px solid var(--accent)}
+  .empty{flex:1; display:flex; align-items:center; justify-content:center;
+    color:var(--dim); flex-direction:column; gap:12px}
+  .legend{display:flex; gap:14px; font-size:11px; color:var(--dim);
+    padding:8px 16px; border-top:1px solid var(--line); background:var(--panel)}
+  .legend .k{display:inline-flex; align-items:center; gap:5px}
+  .swatch{width:12px;height:12px;border-radius:3px}
+  /* Brighter, prominent Refresh button */
+  #refreshBtn{
+    display:inline-flex; align-items:center; gap:6px; padding:6px 16px;
+    border-radius:20px; font-size:13px; font-weight:700; cursor:pointer;
+    color:#06283d; border:none;
+    background:linear-gradient(135deg,var(--accent),#36b3ff);
+    box-shadow:0 0 10px rgba(76,194,255,.5); transition:all .15s;
+  }
+  #refreshBtn:hover{filter:brightness(1.12); box-shadow:0 0 16px rgba(76,194,255,.8)}
+  #refreshBtn:active{transform:scale(.96)}
+  #refreshBtn:disabled{opacity:.6; cursor:wait}
+  /* Empty-state stats dashboard */
+  .stats{flex:1; display:flex; flex-direction:column; align-items:center;
+    justify-content:center; gap:18px; padding:30px; text-align:center}
+  .stats .big{font-size:54px; line-height:1}
+  .stats h2{font-size:20px; font-weight:700}
+  .stats .sub{color:var(--dim); font-size:13px; max-width:380px; line-height:1.5}
+  .statgrid{display:grid; grid-template-columns:repeat(2,minmax(130px,1fr));
+    gap:12px; margin-top:6px}
+  .statcard{background:var(--panel2); border:1px solid var(--line);
+    border-radius:10px; padding:14px 18px; min-width:130px}
+  .statcard .n{font-size:26px; font-weight:800}
+  .statcard .l{font-size:11px; color:var(--dim); text-transform:uppercase;
+    letter-spacing:.5px; margin-top:4px}
+  .statcard.ai .n{color:var(--ai)} .statcard.recv .n{color:var(--text)}
+  .statcard.manual .n{color:var(--manual)} .statcard.conv .n{color:var(--accent)}
+  .statstatus{display:inline-flex; align-items:center; gap:7px; font-size:13px;
+    padding:6px 14px; border-radius:20px; background:var(--panel2);
+    border:1px solid var(--line)}
+</style>
+</head>
+<body>
+  <div id="topbar">
+    <div class="brand">Signal · WhatsApp <span>Hub</span><span class="ver" id="verBadge">v0.2.0</span></div>
+    <div class="num" id="numline"></div>
+    <div class="spacer"></div>
+    <button id="refreshBtn" title="Refresh conversations & reconnect receivers">⟳ Refresh</button>
+    <div class="pill"><span class="dot" id="sigDot"></span> Signal</div>
+    <div class="pill"><span class="dot" id="waDot"></span> WhatsApp</div>
+  </div>
+
+  <div id="tabbar">
+    <div class="tab active" data-tab="signal"><span class="badge"></span> Signal</div>
+    <div class="tab" data-tab="whatsapp"><span class="badge"></span> WhatsApp</div>
+  </div>
+
+  <div id="main">
+    <!-- panes injected by JS -->
+  </div>
+
+  <div class="legend">
+    <span class="k"><span class="swatch" style="background:#2a3340"></span> Received (human)</span>
+    <span class="k"><span class="swatch" style="background:var(--manual)"></span> Sent manually (you)</span>
+    <span class="k"><span class="swatch" style="background:var(--ai)"></span> Sent by AI 🤖</span>
+    <span class="spacer" style="flex:1"></span>
+    <span id="dbg" style="color:#5a6472;font-family:monospace">ready</span>
+  </div>
+
+<script type="module">
+// Visible debug line (so we can diagnose without devtools) + capture errors.
+function dbg(m){ const d=document.getElementById("dbg"); if(d) d.textContent=String(m).slice(0,120); }
+window.addEventListener("error", e=>dbg("JS ERR: "+(e.message||e.error)));
+window.addEventListener("unhandledrejection", e=>dbg("PROMISE ERR: "+(e.reason&&e.reason.message||e.reason)));
+// Guard: if the Tauri bridge isn't injected yet, show a clear message instead
+// of a blank screen, and retry shortly.
+if (!window.__TAURI__ || !window.__TAURI__.core) {
+  document.getElementById("main").innerHTML =
+    '<div style="margin:auto;color:#8b98a5;text-align:center">'
+    + 'Connecting to backend…<br><small>If this persists, the Tauri bridge '
+    + 'failed to load.</small></div>';
+  setTimeout(()=>location.reload(), 1200);
+  throw new Error("Tauri bridge not ready");
+}
+const { invoke } = window.__TAURI__.core;
+const { listen } = window.__TAURI__.event;
+
+const PLATFORMS = ["signal", "whatsapp"];
+let activeTab = "signal";
+// per-platform UI state
+const ui = {
+  signal:   { peer:null, linked:false, qr:null, unread:0 },
+  whatsapp: { peer:null, linked:false, qr:null, unread:0 },
+};
+
+// ── Unread badge on the tabs ──
+function setUnread(p, n){
+  ui[p].unread = Math.max(0, n);
+  renderUnreadBadge(p);
+}
+function bumpUnread(p){ setUnread(p, ui[p].unread + 1); }
+function clearUnread(p){ setUnread(p, 0); }
+function renderUnreadBadge(p){
+  const tab = document.querySelector(`.tab[data-tab="${p}"]`);
+  if(!tab) return;
+  let badge = tab.querySelector(".unread");
+  const n = ui[p].unread;
+  if(n > 0){
+    if(!badge){
+      badge = document.createElement("span");
+      badge.className = "unread";
+      tab.appendChild(badge);
+    }
+    badge.textContent = n > 99 ? "99+" : String(n);
+  } else if(badge){
+    badge.remove();
+  }
+}
+
+function esc(s){return (s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+function fmtTime(ts){const d=new Date(ts*1000);return d.toLocaleString([], {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});}
+// Compact relative time for the conversation list: "now", "5m", "3h", "Mon", "12 Jun"
+function relTime(ts){
+  const now=Date.now()/1000, diff=now-ts;
+  if(diff<60) return "now";
+  if(diff<3600) return Math.floor(diff/60)+"m";
+  if(diff<86400) return Math.floor(diff/3600)+"h";
+  const d=new Date(ts*1000);
+  if(diff<7*86400) return d.toLocaleDateString([], {weekday:'short'});
+  return d.toLocaleDateString([], {day:'numeric',month:'short'});
+}
+
+// ── Build pane DOM for a platform ──
+function buildPane(p){
+  const pane = document.createElement("div");
+  pane.className = "pane" + (p===activeTab?" active":"");
+  pane.id = "pane-"+p;
+  pane.innerHTML = `
+    <div class="sidebar">
+      <div class="hd"><span>Conversations</span>
+        <button class="btn ghost" style="padding:3px 10px;font-size:11px" id="link-${p}">Link / QR</button>
+      </div>
+      <div class="newconv">
+        <input id="newpeer-${p}" placeholder="New: ${p==='signal'?'+61…':'61…'} number then Enter" />
+      </div>
+      <div class="convlist" id="convlist-${p}"></div>
+    </div>
+    <div class="chat" id="chat-${p}">
+      <div class="stats" id="stats-${p}">
+        <div class="big">${p==='signal'?'🔵':'🟢'}</div>
+        <h2>${p==='signal'?'Signal':'WhatsApp'}</h2>
+        <div class="sub">Loading stats…</div>
+      </div>
+    </div>`;
+  return pane;
+}
+
+// Render the empty-state stats dashboard for a platform.
+async function renderStats(p){
+  const host = document.getElementById("stats-"+p);
+  if(!host) return;
+  let st = {total:0,received:0,sent:0,ai_sent:0,manual_sent:0,conversations:0,last_activity_ts:0};
+  let status = {ok:false, account:""};
+  try{ st = await invoke("get_stats",{platform:p}); }catch(e){}
+  try{
+    const s = await invoke("get_status");
+    status = (p==='signal'? s.signal : s.whatsapp) || status;
+  }catch(e){}
+  const last = st.last_activity_ts ? relTime(st.last_activity_ts) : "—";
+  const linked = status.ok;
+  host.innerHTML = `
+    <div class="big">${p==='signal'?'🔵':'🟢'}</div>
+    <h2>${p==='signal'?'Signal':'WhatsApp'}</h2>
+    <div class="statstatus">
+      <span class="dot ${linked?'ok':'bad'}"></span>
+      ${linked ? 'Connected · '+esc(status.account||'') : 'Not linked'}
+    </div>
+    <div class="statgrid">
+      <div class="statcard conv"><div class="n">${st.conversations}</div><div class="l">Conversations</div></div>
+      <div class="statcard recv"><div class="n">${st.received}</div><div class="l">Received</div></div>
+      <div class="statcard manual"><div class="n">${st.manual_sent}</div><div class="l">Sent (you)</div></div>
+      <div class="statcard ai"><div class="n">${st.ai_sent}</div><div class="l">Sent (AI)</div></div>
+    </div>
+    <div class="sub">${st.total} total messages · last activity ${last}<br>
+      Select a conversation on the left, or add a number to start one.
+      ${linked?'':'<br><b>Click "Link / QR" to connect this platform.</b>'}</div>`;
+}
+
+function renderTabs(){
+  const main = document.getElementById("main");
+  main.innerHTML = "";
+  PLATFORMS.forEach(p => main.appendChild(buildPane(p)));
+  PLATFORMS.forEach(p => {
+    document.getElementById("link-"+p).onclick = () => showLink(p);
+    const np = document.getElementById("newpeer-"+p);
+    np.onkeydown = e => {
+      if(e.key==="Enter" && np.value.trim()){
+        openConversation(p, np.value.trim(), "");
+        np.value="";
+      }
+    };
+  });
+}
+
+document.querySelectorAll(".tab").forEach(t=>{
+  t.onclick = ()=>{
+    activeTab = t.dataset.tab;
+    document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active",x===t));
+    document.querySelectorAll(".pane").forEach(x=>x.classList.toggle("active",x.id==="pane-"+activeTab));
+    clearUnread(activeTab);          // viewing the tab clears its unread badge
+    refreshConversations(activeTab);
+  };
+});
+
+// ── Conversations ──
+async function refreshConversations(p){
+  let convs = [];
+  try { convs = await invoke("list_conversations",{platform:p}); } catch(e){}
+  const list = document.getElementById("convlist-"+p);
+  if(!list) return;
+  if(convs.length===0){
+    list.innerHTML = `<div style="padding:14px;color:var(--dim);font-size:12px">No conversations yet. Add a number above to start one.</div>`;
+    return;
+  }
+  list.innerHTML = convs.map(c=>`
+    <div class="conv ${ui[p].peer===c.peer?'active':''}" data-peer="${esc(c.peer)}" data-name="${esc(c.peer_name)}">
+      <div class="conv-top">
+        <span class="name">${esc(c.peer_name||c.peer)}</span>
+        <span class="when">${c.last_ts ? relTime(c.last_ts) : ''}</span>
+      </div>
+      <div class="prev">${esc(c.last_text)}</div>
+    </div>`).join("");
+  list.querySelectorAll(".conv").forEach(el=>{
+    el.onclick = ()=>openConversation(p, el.dataset.peer, el.dataset.name);
+  });
+}
+
+async function openConversation(p, peer, name){
+  ui[p].peer = peer;
+  if(activeTab === p) clearUnread(p);   // opening a thread = you're reading it
+  refreshConversations(p);
+  const chat = document.getElementById("chat-"+p);
+  chat.innerHTML = `
+    <div class="chathd">
+      <div>
+        <div class="peer">${esc(name||peer)}</div>
+        <div class="sub">${esc(peer)} · ${p}</div>
+      </div>
+    </div>
+    <div class="messages" id="msgs-${p}"></div>
+    <div class="composer">
+      <textarea id="ta-${p}" placeholder="Type a message…"></textarea>
+      <div class="src">
+        <label><input type="radio" name="src-${p}" value="manual" checked> Manual</label>
+        <label><input type="radio" name="src-${p}" value="ai"> As AI 🤖</label>
+      </div>
+      <button id="send-${p}">Send</button>
+    </div>`;
+  const ta = document.getElementById("ta-"+p);
+  const send = ()=>doSend(p);
+  document.getElementById("send-"+p).onclick = send;
+  ta.onkeydown = e=>{ if(e.key==="Enter" && !e.shiftKey){ e.preventDefault(); send(); } };
+  ta.focus();
+  await loadMessages(p);
+}
+
+async function loadMessages(p){
+  if(!ui[p].peer) return;
+  let msgs=[];
+  try{ msgs = await invoke("list_messages",{platform:p, peer:ui[p].peer}); }catch(e){}
+  const box = document.getElementById("msgs-"+p);
+  if(!box) return;
+  box.innerHTML = msgs.map(renderMsg).join("");
+  box.scrollTop = box.scrollHeight;
+}
+
+function renderMsg(m){
+  const cls = m.direction==="in" ? "in" : ("out "+(m.source==="ai"?"ai":"manual"));
+  const tag = m.direction==="in" ? "Received"
+            : (m.source==="ai" ? "AI" : "You");
+  return `<div class="msg ${cls}">
+      <div>${esc(m.text)}</div>
+      <div class="meta"><span class="tag">${tag}</span><span>${fmtTime(m.ts)}</span></div>
+    </div>`;
+}
+
+async function doSend(p){
+  const ta = document.getElementById("ta-"+p);
+  const text = ta.value.trim();
+  if(!text || !ui[p].peer) return;
+  const src = document.querySelector(`input[name="src-${p}"]:checked`).value;
+  const btn = document.getElementById("send-"+p);
+  btn.disabled = true; btn.textContent = "…";
+  try{
+    await invoke("send_message",{platform:p, recipient:ui[p].peer, text, source:src});
+    ta.value="";
+    await loadMessages(p);
+    refreshConversations(p);
+  }catch(e){
+    alert("Send failed: "+e);
+  }finally{
+    btn.disabled=false; btn.textContent="Send";
+  }
+}
+
+// ── Linking / QR ──
+function showLink(p){
+  const chat = document.getElementById("chat-"+p);
+  ui[p].peer=null;
+  const dev = p==='signal' ? 'secondary device' : 'companion device';
+  chat.innerHTML = `
+    <div class="linkpanel">
+      <h2>Link ${p==='signal'?'Signal':'WhatsApp'}</h2>
+      <p>Open ${p==='signal'?'Signal':'WhatsApp'} on your phone →
+         <b>${p==='signal'?'Settings ▸ Linked devices':'Settings ▸ Linked devices'}</b>
+         → <b>Link a ${dev}</b>, then scan this QR code.</p>
+      <div class="qrbox" id="qrbox-${p}"><div class="waiting">Generating QR…</div></div>
+      <div id="linkstatus-${p}" style="color:var(--dim)"></div>
+      <div style="display:flex;gap:10px">
+        <button class="btn" id="genqr-${p}">Generate QR</button>
+        <button class="btn ghost" id="closelink-${p}">Done</button>
+      </div>
+    </div>`;
+  document.getElementById("genqr-"+p).onclick = ()=>startLink(p);
+  document.getElementById("closelink-"+p).onclick = ()=>{
+    invoke("cancel_links").catch(()=>{});
+    const c=document.getElementById("chat-"+p);
+    c.innerHTML = `<div class="stats" id="stats-${p}"><div class="big">${p==='signal'?'🔵':'🟢'}</div><h2>${p==='signal'?'Signal':'WhatsApp'}</h2><div class="sub">Loading stats…</div></div>`;
+    renderStats(p);
+  };
+  startLink(p);
+}
+
+let qrPollTimers = { signal:null, whatsapp:null };
+function startLink(p){
+  const box = document.getElementById("qrbox-"+p);
+  if(box) box.innerHTML = `<div class="waiting">Generating QR…</div>`;
+  if(p==='signal') invoke("start_signal_link",{deviceName:"Signal WhatsApp Hub"}).catch(e=>console.error(e));
+  else invoke("start_whatsapp_link").catch(e=>console.error(e));
+  // Poll as a robust fallback in case the push event is missed.
+  dbg("link "+p+": requesting QR…");
+  if(qrPollTimers[p]) clearInterval(qrPollTimers[p]);
+  let lastQr = null;
+  qrPollTimers[p] = setInterval(async ()=>{
+    // stop polling if the link panel is gone
+    if(!document.getElementById("qrbox-"+p)){ clearInterval(qrPollTimers[p]); qrPollTimers[p]=null; return; }
+    try{
+      const s = await invoke("get_link_state",{platform:p});
+      if(s.linked){
+        setLinked(p, s.linked);
+        clearInterval(qrPollTimers[p]); qrPollTimers[p]=null;
+      } else if(s.qr && s.qr !== lastQr){
+        lastQr = s.qr;
+        setQR(p, s.qr);
+      }
+    }catch(e){ console.error("[qrpoll]", e); }
+  }, 1000);
+}
+
+function setQR(p, dataUri){
+  console.log("[setQR]", p, "uri length:", (dataUri||"").length, "head:", (dataUri||"").slice(0,30));
+  const box = document.getElementById("qrbox-"+p);
+  if(!box){ console.warn("[setQR] no qrbox-"+p+" element"); return; }
+  const img = new Image();
+  img.alt = "QR";
+  img.onload = ()=>{ box.innerHTML = ""; box.appendChild(img); dbg("QR shown ("+p+")"); };
+  img.onerror = (e)=>{ console.error("[setQR] img failed to load", e); dbg("QR img FAILED to render"); box.innerHTML = '<div class="waiting" style="color:#b00">QR image failed to render</div>'; };
+  img.src = dataUri;
+  const st = document.getElementById("linkstatus-"+p);
+  if(st) st.textContent = "Waiting for scan…";
+}
+function setLinked(p, detail){
+  ui[p].linked = true;
+  const box = document.getElementById("qrbox-"+p);
+  if(box) box.innerHTML = `<div class="waiting" style="color:var(--ok);font-weight:700">✓ Linked<br>${esc(detail)}</div>`;
+  const st = document.getElementById("linkstatus-"+p);
+  if(st) st.textContent = "Linked successfully ("+detail+")";
+  pollStatus();
+}
+
+// ── Status polling ──
+async function pollStatus(){
+  let s;
+  try{ s = await invoke("get_status"); }catch(e){ return; }
+  setDot("sigDot", s.signal && s.signal.ok);
+  setDot("waDot", s.whatsapp && s.whatsapp.ok);
+}
+function setDot(id, ok){
+  const d = document.getElementById(id);
+  if(d) d.className = "dot "+(ok?"ok":"bad");
+}
+
+// ── Live message events from backend ──
+listen("message", ev=>{
+  const m = ev.payload;
+  // refresh conversation list + open thread if it matches
+  refreshConversations(m.platform);
+  const viewingThisThread =
+    activeTab === m.platform && ui[m.platform].peer === m.peer;
+  if(viewingThisThread){
+    const box = document.getElementById("msgs-"+m.platform);
+    if(box){
+      box.insertAdjacentHTML("beforeend", renderMsg(m));
+      box.scrollTop = box.scrollHeight;
+    }
+  }
+  // Unread badge: count inbound (received) messages you're not actively reading.
+  if(m.direction === "in" && !viewingThisThread){
+    bumpUnread(m.platform);
+  }
+  // keep the stats dashboard live if it's showing
+  if(document.getElementById("stats-"+m.platform)) renderStats(m.platform);
+});
+listen("wa_qr",      ev=>{ console.log("[evt] wa_qr"); setQR("whatsapp", ev.payload); });
+listen("wa_linked",  ev=>{ console.log("[evt] wa_linked"); setLinked("whatsapp", ev.payload); });
+listen("signal_qr",     ev=>{ console.log("[evt] signal_qr"); setQR("signal", ev.payload); });
+listen("signal_linked", ev=>{ console.log("[evt] signal_linked"); setLinked("signal", ev.payload); });
+console.log("[boot] QR event listeners registered");
+
+// ── Manual refresh: reload conversations + open thread, re-check status,
+//    and re-kick the receivers (re-subscribes Signal daemon). ──
+async function manualRefresh(){
+  const btn = document.getElementById("refreshBtn");
+  if(btn){ btn.textContent = "⟳ Refreshing…"; btn.disabled = true; }
+  dbg("manual refresh…");
+  try{
+    // re-kick receivers (re-subscribes the Signal daemon stream)
+    try{ await invoke("start_receivers"); }catch(e){}
+    // reload both platforms' conversation lists
+    for(const p of PLATFORMS){ await refreshConversations(p); }
+    // reload the currently open thread
+    if(ui[activeTab] && ui[activeTab].peer){ await loadMessages(activeTab); }
+    await pollStatus();
+    // refresh any visible stats dashboards
+    for(const p of PLATFORMS){ if(document.getElementById("stats-"+p)) await renderStats(p); }
+    dbg("refreshed at "+new Date().toLocaleTimeString());
+  }catch(e){ dbg("refresh err: "+e); }
+  finally{ if(btn){ btn.textContent = "⟳ Refresh"; btn.disabled = false; } }
+}
+document.getElementById("refreshBtn").onclick = manualRefresh;
+
+// ── Boot ──
+async function boot(){
+  renderTabs();
+  try{
+    const cfg = await invoke("get_config");
+    const sig = cfg.signal_account || "(set HUB_SIGNAL_ACCOUNT)";
+    const wa  = cfg.whatsapp_account || "(set HUB_WA_ACCOUNT)";
+    document.getElementById("numline").textContent =
+      "Signal "+sig+"  ·  WhatsApp "+wa;
+  }catch(e){}
+  PLATFORMS.forEach(refreshConversations);
+  PLATFORMS.forEach(renderStats);   // show stats dashboard on the empty tabs
+  pollStatus();
+  setInterval(pollStatus, 15000);
+  try{ await invoke("start_receivers"); }catch(e){}
+  dbg("loaded — "+PLATFORMS.length+" tabs");
+}
+boot().catch(e=>dbg("BOOT ERR: "+(e&&e.message||e)));
+</script>
+</body>
+</html>
