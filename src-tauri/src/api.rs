@@ -88,10 +88,13 @@ fn handle(ctx: &ApiCtx, mut request: tiny_http::Request) {
         (Method::Get, "/health") => {
             let sig = crate::bridge::signal_status(&ctx.cfg).ok;
             let wa = crate::bridge::wa_status(&ctx.cfg).ok;
+            let fw = crate::forward::status();
             json_response(
                 200,
                 serde_json::json!({"ok": true, "signal": sig, "whatsapp": wa,
-                    "forwarding": crate::forward::enabled().map(|(u, _)| u)}).to_string(),
+                    "forwarding": fw.enabled,
+                    "forward_url": if fw.enabled { fw.url } else { String::new() }})
+                .to_string(),
             )
         }
         (Method::Post, "/send") => {

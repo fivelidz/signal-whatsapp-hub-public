@@ -102,11 +102,28 @@ fn list_messages(
 /// API. Sends the message, stores it (tagged with `source`), and returns the
 /// stored Message. Caller is responsible for emitting the UI event if it has
 /// an AppHandle.
-/// Fleet mode: report the forwarding endpoint so the UI can show the
-/// consent banner (None = forwarding off).
+/// Fleet mode: full forwarding status for the settings UI + consent banner.
 #[tauri::command]
-fn forwarding_status() -> Option<String> {
-    forward::enabled().map(|(url, _)| url)
+fn forwarding_status() -> forward::ForwardStatus {
+    forward::status()
+}
+
+/// Replace endpoint/token/enabled in one call (Fleet settings panel "Save").
+#[tauri::command]
+fn forward_configure(enabled: bool, url: String, token: String) -> Result<(), String> {
+    forward::configure(enabled, &url, &token)
+}
+
+/// UI on/off toggle — persists instantly, no restart.
+#[tauri::command]
+fn forward_toggle(enabled: bool) -> Result<(), String> {
+    forward::set_enabled(enabled)
+}
+
+/// One-shot test fire from the Fleet panel.
+#[tauri::command]
+fn forward_test() -> Result<(), String> {
+    forward::test_fire()
 }
 
 pub fn do_send(
@@ -376,6 +393,7 @@ fn ensure_sig_receiver(
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    forward::init(); // fleet forwarding settings (settings.json, env-seeded)
     let cfg = Config::load();
     log(&format!(
         "boot — wa_cli:{} sig_cli:{} java:{}",
@@ -433,6 +451,9 @@ pub fn run() {
             get_config,
             get_status,
             forwarding_status,
+            forward_configure,
+            forward_toggle,
+            forward_test,
             get_stats,
             list_conversations,
             list_messages,

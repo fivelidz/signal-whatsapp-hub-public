@@ -222,18 +222,95 @@ if (!window.__TAURI__ || !window.__TAURI__.core) {
 const { invoke } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
 
-// Fleet/consent banner: shown only when HUB_FORWARD_URL is set on this
-// deployment. Never shown otherwise — no covert mode exists.
-(async () => { try {
-  const ep = await invoke("forwarding_status");
-  if (ep) {
-    const b = document.createElement("div");
-    b.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:9999;"
-      + "background:#7a4b00;color:#ffd28a;padding:3px 10px;font-size:12px;text-align:center";
-    b.textContent = "Company message forwarding enabled → " + ep;
-    document.body.appendChild(b);
-  }
-} catch (e) {} })();
+// ── Fleet forwarding: consent banner + settings panel ──
+// While enabled, the banner is always visible (that IS the consent model).
+// The Fleet panel lets the operator configure endpoint/token, toggle on/off
+// live, test the endpoint, and see forward stats. No covert mode exists.
+const fleetBanner = (on, url) => {
+  document.getElementById("fw-banner")?.remove();
+  if (!on) return;
+  const b = document.createElement("div");
+  b.id = "fw-banner";
+  b.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:9999;"
+    + "background:#7a4b00;color:#ffd28a;padding:3px 10px;font-size:12px;text-align:center";
+  b.textContent = "Company message forwarding enabled → " + url + "  (see Fleet panel)";
+  document.body.appendChild(b);
+};
+async function fleetRefresh(){
+  const s = await invoke("forwarding_status");
+  fleetBanner(s.enabled, s.url);
+  const st = document.getElementById("fw-status");
+  if (st) st.innerHTML =
+    `<b>${s.enabled ? "ON" : (s.configured ? "configured · OFF" : "not configured")}</b><br>`
+    + `forwarded: ${s.forwarded_total} · failed: ${s.failed_total}<br>`
+    + (s.last_error ? `<span style="color:#f66">last error: ${esc(s.last_error)}</span><br>` : "")
+    + (s.last_ts ? `last forward: ${fmtTime(s.last_ts)}` : "no forwards yet");
+  const en = document.getElementById("fw-enabled");
+  if (en) en.checked = s.enabled;
+  const u = document.getElementById("fw-url");
+  if (u && document.activeElement !== u) u.value = s.url;
+  return s;
+}
+function fleetPanel(){
+  let p = document.getElementById("fleetpanel");
+  if (p) { p.remove(); return; }
+  p = document.createElement("div");
+  p.id = "fleetpanel";
+  p.style.cssText = "position:fixed;bottom:14px;right:14px;z-index:9998;width:330px;"
+    + "background:#182430;border:1px solid #2c4a68;border-radius:10px;padding:14px;"
+    + "box-shadow:0 8px 30px rgba(0,0,0,.5);font-size:12.5px";
+  p.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <b style="color:#7fb2e5">Fleet forwarding</b>
+      <button class="btn ghost" style="padding:1px 8px" onclick="this.closest('#fleetpanel').remove()">✕</button>
+    </div>
+    <div id="fw-status" style="color:var(--dim,#8aa);margin-bottom:8px">loading…</div>
+    <label style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
+      <input type="checkbox" id="fw-enabled"> enabled (banner shown while on)
+    </label>
+    <input id="fw-url" placeholder="https://concierge…/api/hub-ingest"
+      style="width:100%;box-sizing:border-box;margin-bottom:6px;background:#0d1620;color:#cde;border:1px solid #2c4a68;border-radius:6px;padding:5px">
+    <input id="fw-token" type="password" placeholder="device token"
+      style="width:100%;box-sizing:border-box;margin-bottom:8px;background:#0d1620;color:#cde;border:1px solid #2c4a68;border-radius:6px;padding:5px">
+    <div style="display:flex;gap:8px">
+      <button class="btn" id="fw-save">Save</button>
+      <button class="btn ghost" id="fw-test">Test</button>
+    </div>
+    <div id="fw-msg" style="margin-top:6px;color:var(--dim,#8aa)"></div>`;
+  document.body.appendChild(p);
+  fleetRefresh().catch(()=>{});
+  p.querySelector("#fw-enabled").onchange = async (e) => {
+    try { await invoke("forward_toggle", {enabled: e.target.checked}); fleetRefresh(); }
+    catch(err){ fleetMsg(err); fleetRefresh(); }
+  };
+  p.querySelector("#fw-save").onclick = async () => {
+    try {
+      await invoke("forward_configure", {
+        enabled: p.querySelector("#fw-enabled").checked,
+        url: p.querySelector("#fw-url").value,
+        token: p.querySelector("#fw-token").value,
+      });
+      fleetMsg("saved ✓");
+    } catch(err){ fleetMsg(String(err).replace("Error","error")); }
+    fleetRefresh();
+  };
+  p.querySelector("#fw-test").onclick = async () => {
+    fleetMsg("testing…");
+    try { await invoke("forward_test"); fleetMsg("test delivered ✓"); }
+    catch(err){ fleetMsg(String(err).replace("Error","error")); }
+  };
+}
+function fleetMsg(m){
+  const el = document.getElementById("fw-msg");
+  if (el) el.textContent = m;
+}
+const fleetBtn = document.createElement("button");
+fleetBtn.textContent = "⚑ Fleet";
+fleetBtn.style.cssText = "position:fixed;bottom:14px;right:14px;z-index:9997;"
+  + "background:#1c3d5a;color:#cde;border:1px solid #2c4a68;border-radius:8px;padding:4px 10px;font-size:12px;cursor:pointer";
+fleetBtn.onclick = fleetPanel;
+document.body.appendChild(fleetBtn);
+fleetRefresh().catch(()=>{});
 
 const PLATFORMS = ["signal", "whatsapp"];
 let activeTab = "signal";
