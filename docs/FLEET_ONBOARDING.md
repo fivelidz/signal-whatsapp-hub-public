@@ -26,11 +26,13 @@ applies to communications captured without consent).
    bearer token (store it in the deployment inventory).
 2. **Install the hub** on the device and link Signal/WhatsApp to the **work
    numbers** (not personal ones).
-3. **Configure fleet mode** (`.env` or systemd unit):
-   ```bash
-   HUB_FORWARD_URL=https://<concierge-endpoint>/api/hub-ingest
-   HUB_FORWARD_TOKEN=<device token>
-   ```
+3. **Configure fleet mode** — either:
+   - in the app: **⚑ Fleet panel** → endpoint + device token → Save → enabled ✓, or
+   - headless (`.env` / systemd unit — first-run seed):
+     ```bash
+     HUB_FORWARD_URL=https://<concierge-endpoint>/api/hub-ingest
+     HUB_FORWARD_TOKEN=<device token>
+     ```
 4. **Restart the hub.** Verify:
    - banner visible in the desktop UI,
    - `curl -H "Authorization: Bearer $(cat api-token)" localhost:8769/health`

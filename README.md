@@ -217,7 +217,12 @@ owner-only permissions, unencrypted. Treat it as sensitive.
 
 ## Fleet mode (company forwarding — opt-in, visible)
 
-Run the hub on each fleet device and set:
+Run the hub on each fleet device, then enable forwarding from the app's
+**⚑ Fleet panel** (bottom-right): enter the endpoint + device token, flip
+**enabled**, Save. Toggle, test and stats are live in the panel — no restart
+needed. The banner appears the moment it is enabled.
+
+Headless/MDM alternative (first-run seed only):
 
 ```bash
 HUB_FORWARD_URL=https://concierge.yourcompany.example/api/hub-ingest
