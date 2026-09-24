@@ -1,3 +1,18 @@
+## v0.2.1 BREAKING — API authentication required
+
+All integration-API calls now need a bearer token:
+
+```
+Authorization: Bearer $(cat ~/.local/share/signal-whatsapp-hub/api-token)
+```
+
+(Or `HUB_API_TOKEN` if the operator set one.) Additionally `POST /send`
+requires `Content-Type: application/json`, recipients must be `+E.164` or a
+platform jid, and requests from non-localhost `Host` headers are rejected.
+Update your agents/bots once; everything else in this contract is unchanged.
+
+---
+
 # Signal · WhatsApp Hub — Agent / Integration API
 
 **For autonomous agents and other programs that want to send & read Signal +

@@ -12,6 +12,7 @@
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use std::fs::{create_dir_all, OpenOptions};
+use std::os::unix::fs::OpenOptionsExt;
 use std::io::{BufRead, BufReader, Write};
 use std::path::PathBuf;
 use std::sync::Mutex;
@@ -71,6 +72,11 @@ fn store_path() -> PathBuf {
         .unwrap_or_else(|| PathBuf::from("/tmp"))
         .join("signal-whatsapp-hub");
     let _ = create_dir_all(&dir);
+    // L1 fix: keep the store directory owner-only as well
+    let _ = std::fs::set_permissions(
+        &dir,
+        std::os::unix::fs::PermissionsExt::from_mode(0o700),
+    );
     dir.join("messages.jsonl")
 }
 
@@ -89,6 +95,7 @@ impl Store {
     /// Add a message, persist it, and return a clone.
     pub fn add(&self, m: Message) -> Message {
         append_to_disk(&m);
+        crate::forward::forward(&m);
         let mut guard = self.msgs.lock().unwrap();
         guard.push(m.clone());
         // keep memory bounded
@@ -262,7 +269,12 @@ fn load_from_disk() -> Vec<Message> {
 
 fn append_to_disk(m: &Message) {
     let path = store_path();
-    if let Ok(mut f) = OpenOptions::new().create(true).append(true).open(path) {
+    if let Ok(mut f) = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .mode(0o600) // L1 fix: history is private — owner-only file
+        .open(path)
+    {
         if let Ok(line) = serde_json::to_string(m) {
             let _ = writeln!(f, "{}", line);
         }

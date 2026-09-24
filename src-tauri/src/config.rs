@@ -17,8 +17,69 @@
 //!   HUB_JAVA_HOME      JAVA_HOME for signal-cli  (signal-cli 0.14.x needs Java 25)
 //! ```
 
+use std::os::unix::fs::OpenOptionsExt;
+
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+use std::sync::OnceLock;
+
+/// H1 fix: integration-API bearer token. Set HUB_API_TOKEN explicitly, or let
+/// the hub generate one (0600 file next to the message store) on first run.
+/// Every /api request must present `Authorization: Bearer <token>`.
+pub fn api_token() -> String {
+    static TOKEN: OnceLock<String> = OnceLock::new();
+    TOKEN.get_or_init(compute_token).clone()
+}
+
+fn compute_token() -> String {
+    if let Ok(t) = std::env::var("HUB_API_TOKEN") {
+        if !t.trim().is_empty() {
+            return t.trim().to_string();
+        }
+    }
+    let dir = dirs::data_dir()
+        .unwrap_or_else(|| PathBuf::from("/tmp"))
+        .join("signal-whatsapp-hub");
+    let _ = std::fs::create_dir_all(&dir);
+    let _ = std::fs::set_permissions(
+        &dir,
+        std::os::unix::fs::PermissionsExt::from_mode(0o700),
+    );
+    let path = dir.join("api-token");
+    if let Ok(existing) = std::fs::read_to_string(&path) {
+        let t = existing.trim().to_string();
+        if !t.is_empty() {
+            return t;
+        }
+    }
+    use std::io::{Read, Write};
+    let mut buf = [0u8; 16];
+    let ok = std::fs::File::open("/dev/urandom")
+        .and_then(|mut f| f.read_exact(&mut buf))
+        .is_ok();
+    let t = if ok {
+        buf.iter().map(|b| format!("{:02x}", b)).collect()
+    } else {
+        format!(
+            "{:x}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_nanos())
+                .unwrap_or(0)
+        )
+    };
+    if let Ok(mut f) = std::fs::OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .mode(0o600)
+        .open(&path)
+    {
+        let _ = f.write_all(t.as_bytes());
+        eprintln!("[hub] generated integration API token: {}", path.display());
+    }
+    t
+}
 
 fn env_or(key: &str, default: PathBuf) -> PathBuf {
     std::env::var(key).map(PathBuf::from).unwrap_or(default)

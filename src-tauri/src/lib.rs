@@ -3,6 +3,7 @@
 mod api;
 mod bridge;
 mod config;
+mod forward;
 mod signal_daemon;
 mod store;
 
@@ -101,6 +102,13 @@ fn list_messages(
 /// API. Sends the message, stores it (tagged with `source`), and returns the
 /// stored Message. Caller is responsible for emitting the UI event if it has
 /// an AppHandle.
+/// Fleet mode: report the forwarding endpoint so the UI can show the
+/// consent banner (None = forwarding off).
+#[tauri::command]
+fn forwarding_status() -> Option<String> {
+    forward::enabled().map(|(url, _)| url)
+}
+
 pub fn do_send(
     cfg: &Config,
     store: &Arc<Store>,
@@ -417,12 +425,14 @@ pub fn run() {
                 cfg: st.cfg.clone(),
                 store: st.store.clone(),
                 signal: st.signal.clone(),
+                token: config::api_token(),
             });
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             get_config,
             get_status,
+            forwarding_status,
             get_stats,
             list_conversations,
             list_messages,

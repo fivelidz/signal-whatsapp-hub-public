@@ -222,6 +222,19 @@ if (!window.__TAURI__ || !window.__TAURI__.core) {
 const { invoke } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
 
+// Fleet/consent banner: shown only when HUB_FORWARD_URL is set on this
+// deployment. Never shown otherwise — no covert mode exists.
+(async () => { try {
+  const ep = await invoke("forwarding_status");
+  if (ep) {
+    const b = document.createElement("div");
+    b.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:9999;"
+      + "background:#7a4b00;color:#ffd28a;padding:3px 10px;font-size:12px;text-align:center";
+    b.textContent = "Company message forwarding enabled → " + ep;
+    document.body.appendChild(b);
+  }
+} catch (e) {} })();
+
 const PLATFORMS = ["signal", "whatsapp"];
 let activeTab = "signal";
 // per-platform UI state

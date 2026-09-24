@@ -185,3 +185,47 @@ MIT — see [LICENSE](LICENSE).
 
 This project is not affiliated with or endorsed by Signal or WhatsApp. "Signal"
 and "WhatsApp" are trademarks of their respective owners.
+
+---
+
+## Security
+
+**Integration API authentication (v0.2.1+).** Every `/api` request now requires
+`Authorization: Bearer <token>`. The token is read from `HUB_API_TOKEN`, or
+auto-generated on first run and stored (0600) at
+`~/.local/share/signal-whatsapp-hub/api-token`:
+
+```bash
+TOKEN=$(cat ~/.local/share/signal-whatsapp-hub/api-token)
+curl -s -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8769/health
+curl -s -X POST -H "Authorization: Bearer $TOKEN" \
+     -H "Content-Type: application/json" \
+     -d '{"platform":"signal","recipient":"+15551234567","text":"hi"}' \
+     http://127.0.0.1:8769/send
+```
+
+Other hardening in v0.2.1: `Host` header allow-list (DNS-rebinding defence),
+`Content-Type: application/json` enforcement on `POST /send` (JSON-CSRF
+defence), request-body and page-size caps, recipient format validation,
+`0600`/`0700` permissions on the message store, a committed least-privilege
+Tauri capabilities file, a content-security-policy, and the real bundle
+identifier. See `SECURITY_REVIEW` methodology and the `redteam/rebind_demo/`
+kit — a self-test anyone can run against their own instance.
+
+**Message store:** `~/.local/share/signal-whatsapp-hub/messages.jsonl`,
+owner-only permissions, unencrypted. Treat it as sensitive.
+
+## Fleet mode (company forwarding — opt-in, visible)
+
+Run the hub on each fleet device and set:
+
+```bash
+HUB_FORWARD_URL=https://concierge.yourcompany.example/api/hub-ingest
+HUB_FORWARD_TOKEN=<per-device token from your concierge hub>
+```
+
+Every stored message is then POSTed to your endpoint (consolidating work and
+sales phones into one concierge stream), and the desktop UI shows a permanent
+banner — **forwarding is always visible to the person using the phone**. Enable
+it only under a documented policy with the user's consent; the feature has no
+covert mode by design.

@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Least-privilege IPC surface for the main window (M3 fix: committed + auditable)",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}
